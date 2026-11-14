@@ -165,6 +165,10 @@ psram:
 external_components:
   - source: github://n-IA-hane/esphome-audio-stack@v2026.10.2
     components: [esp_audio_stack, esp_afe]
+  - source:
+      type: local
+      path: components
+    components: [sendspin]
 
 wifi:
   id: wifi_id
@@ -1588,6 +1592,83 @@ sensor:
     icon: "mdi:timer"
     accuracy_decimals: 0
 
+  - platform: template
+    name: "Sendspin Last Write"
+    id: sendspin_last_write_ms
+    icon: mdi:timer-outline
+    entity_category: diagnostic
+    update_interval: 1s
+    unit_of_measurement: ms
+    accuracy_decimals: 0
+    lambda: |-
+      return id(media_sendspin_source).last_write_ms();
+
+  - platform: template
+    name: "Sendspin Longest Write"
+    id: sendspin_longest_write_ms
+    icon: mdi:timer-sand
+    entity_category: diagnostic
+    update_interval: 1s
+    unit_of_measurement: ms
+    accuracy_decimals: 0
+    lambda: |-
+      return id(media_sendspin_source).longest_write_ms();
+
+  - platform: template
+    name: "Sendspin Write Calls"
+    id: sendspin_write_calls
+    icon: mdi:counter
+    entity_category: diagnostic
+    update_interval: 1s
+    accuracy_decimals: 0
+    state_class: total_increasing
+    lambda: |-
+      return id(media_sendspin_source).write_call_count();
+
+  - platform: template
+    name: "Sendspin Short Writes"
+    id: sendspin_short_writes
+    icon: mdi:counter
+    entity_category: diagnostic
+    update_interval: 1s
+    accuracy_decimals: 0
+    state_class: total_increasing
+    lambda: |-
+      return id(media_sendspin_source).short_write_count();
+
+  - platform: template
+    name: "Sendspin Zero Writes"
+    id: sendspin_zero_writes
+    icon: mdi:counter
+    entity_category: diagnostic
+    update_interval: 1s
+    accuracy_decimals: 0
+    state_class: total_increasing
+    lambda: |-
+      return id(media_sendspin_source).zero_write_count();
+
+  - platform: template
+    name: "Sendspin Stalled Writes"
+    id: sendspin_stalled_writes
+    icon: mdi:counter
+    entity_category: diagnostic
+    update_interval: 1s
+    accuracy_decimals: 0
+    state_class: total_increasing
+    lambda: |-
+      return id(media_sendspin_source).stalled_write_count();
+
+  - platform: template
+    name: "Sendspin Recovery Restarts"
+    id: sendspin_recovery_restarts
+    icon: mdi:restart-alert
+    entity_category: diagnostic
+    update_interval: 1s
+    accuracy_decimals: 0
+    state_class: total_increasing
+    lambda: |-
+      return id(sendspin_hub).disconnect_recovery_restart_count();
+
 text_sensor:
   - platform: template
     id: next_timer_name
@@ -1608,6 +1689,13 @@ button:
     icon: "mdi:restart"
 
 binary_sensor:
+  - platform: template
+    name: "Sendspin Connected"
+    id: sendspin_connected
+    device_class: connectivity
+    lambda: |-
+      return id(media_sendspin_source).connected();
+
   - platform: gpio
     id: volume_up_button
     name: "Volume up button"
