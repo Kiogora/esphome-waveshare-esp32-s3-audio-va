@@ -164,11 +164,11 @@ psram:
 # this board and remains compatible with the pinned ESP-SR release above.
 external_components:
   - source: github://n-IA-hane/esphome-audio-stack@v2026.10.2
-    components: [esp_audio_stack, esp_afe]
+    components: [esp_afe]
   - source:
       type: local
       path: components
-    components: [sendspin]
+    components: [esp_audio_stack, sendspin]
 
 wifi:
   id: wifi_id
@@ -343,7 +343,7 @@ speaker:
     sample_rate: 48000
     bits_per_sample: 16
     timeout: 1s
-    buffer_duration: 128ms
+    buffer_duration: 500ms
 
   # Mixes the announcement and media pipelines into the one physical output.
   # Mono: the board has a single speaker (mono ES8311 + NS4150B), so a second
@@ -397,7 +397,8 @@ media_source:
     id: media_sendspin_source
     sendspin_id: sendspin_hub
     task_stack_in_psram: true
-    # Retain Sendspin's defaults: 48 kHz, FLAC/Opus/PCM and a 1 MB buffer.
+    buffer_size: 2000000
+    # 48 kHz, FLAC/Opus/PCM with a 2 MB receive buffer.
     # Playback timestamps pass through the resampler, mixer and audio stack.
 
 media_player:
@@ -1592,6 +1593,14 @@ sensor:
     icon: "mdi:timer"
     accuracy_decimals: 0
 
+  - platform: sendspin
+    sendspin_id: sendspin_hub
+    type: track_progress
+    name: "Sendspin Track Progress"
+    id: sendspin_track_progress
+    update_interval: 1s
+    entity_category: diagnostic
+
   - platform: template
     name: "Sendspin Last Write"
     id: sendspin_last_write_ms
@@ -1615,15 +1624,15 @@ sensor:
       return id(media_sendspin_source).longest_write_ms();
 
   - platform: template
-    name: "Sendspin Write Calls"
-    id: sendspin_write_calls
-    icon: mdi:counter
+    name: "Sendspin Recovery Restarts"
+    id: sendspin_recovery_restarts
+    icon: mdi:restart-alert
     entity_category: diagnostic
     update_interval: 1s
     accuracy_decimals: 0
     state_class: total_increasing
     lambda: |-
-      return id(media_sendspin_source).write_call_count();
+      return id(sendspin_hub).disconnect_recovery_restart_count();
 
   - platform: template
     name: "Sendspin Short Writes"
@@ -1637,17 +1646,6 @@ sensor:
       return id(media_sendspin_source).short_write_count();
 
   - platform: template
-    name: "Sendspin Zero Writes"
-    id: sendspin_zero_writes
-    icon: mdi:counter
-    entity_category: diagnostic
-    update_interval: 1s
-    accuracy_decimals: 0
-    state_class: total_increasing
-    lambda: |-
-      return id(media_sendspin_source).zero_write_count();
-
-  - platform: template
     name: "Sendspin Stalled Writes"
     id: sendspin_stalled_writes
     icon: mdi:counter
@@ -1659,15 +1657,70 @@ sensor:
       return id(media_sendspin_source).stalled_write_count();
 
   - platform: template
-    name: "Sendspin Recovery Restarts"
-    id: sendspin_recovery_restarts
-    icon: mdi:restart-alert
+    name: "Sendspin Write Calls"
+    id: sendspin_write_calls
+    icon: mdi:counter
     entity_category: diagnostic
     update_interval: 1s
     accuracy_decimals: 0
     state_class: total_increasing
     lambda: |-
-      return id(sendspin_hub).disconnect_recovery_restart_count();
+      return id(media_sendspin_source).write_call_count();
+
+  - platform: template
+    name: "Sendspin Zero Writes"
+    id: sendspin_zero_writes
+    icon: mdi:counter
+    entity_category: diagnostic
+    update_interval: 1s
+    accuracy_decimals: 0
+    state_class: total_increasing
+    lambda: |-
+      return id(media_sendspin_source).zero_write_count();
+
+  - platform: template
+    name: "Sendspin Buffer Full"
+    id: sendspin_buffer_full
+    icon: mdi:gauge
+    entity_category: diagnostic
+    update_interval: 1s
+    unit_of_measurement: "%"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(media_sendspin_source).buffered_percent();
+
+  - platform: template
+    name: "Sendspin Buffer Backlog"
+    id: sendspin_buffer_backlog_ms
+    icon: mdi:database-clock-outline
+    entity_category: diagnostic
+    update_interval: 1s
+    unit_of_measurement: ms
+    accuracy_decimals: 0
+    lambda: |-
+      return id(media_sendspin_source).buffered_ms();
+
+  - platform: template
+    name: "Sendspin Buffer Backlog Bytes"
+    id: sendspin_buffer_backlog_bytes
+    icon: mdi:database
+    entity_category: diagnostic
+    update_interval: 1s
+    unit_of_measurement: B
+    accuracy_decimals: 0
+    lambda: |-
+      return id(media_sendspin_source).last_buffered_bytes();
+
+  - platform: template
+    name: "Sendspin Buffer Capacity"
+    id: sendspin_buffer_capacity
+    icon: mdi:database
+    entity_category: diagnostic
+    update_interval: 1s
+    unit_of_measurement: B
+    accuracy_decimals: 0
+    lambda: |-
+      return id(media_sendspin_source).max_buffered_bytes();
 
 text_sensor:
   - platform: template
@@ -1675,6 +1728,19 @@ text_sensor:
     name: "Next timer name"
     icon: "mdi:timer"
     update_interval: never
+
+  - platform: sendspin
+    sendspin_id: sendspin_hub
+    type: artist
+    name: "Sendspin Track Artist"
+    entity_category: diagnostic
+
+  - platform: sendspin
+    sendspin_id: sendspin_hub
+    type: title
+    name: "Sendspin Track Title"
+    entity_category: diagnostic
+
 button:
   - platform: factory_reset
     id: factory_reset_button
@@ -1693,6 +1759,7 @@ binary_sensor:
     name: "Sendspin Connected"
     id: sendspin_connected
     device_class: connectivity
+    entity_category: diagnostic
     lambda: |-
       return id(media_sendspin_source).connected();
 

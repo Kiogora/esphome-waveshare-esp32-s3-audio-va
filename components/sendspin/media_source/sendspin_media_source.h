@@ -51,6 +51,10 @@ class SendspinMediaSource final : public SendspinChild,
   uint32_t last_channels() const { return this->last_channels_.load(std::memory_order_relaxed); }
   size_t input_bytes() const { return this->input_bytes_.load(std::memory_order_relaxed); }
   size_t output_bytes() const { return this->output_bytes_.load(std::memory_order_relaxed); }
+  uint32_t last_buffered_bytes() const { return this->last_buffered_bytes_.load(std::memory_order_relaxed); }
+  uint32_t max_buffered_bytes() const { return this->max_buffered_bytes_.load(std::memory_order_relaxed); }
+  uint32_t buffered_ms() const;
+  uint32_t buffered_percent() const;
   std::string debug_summary() const;
   void dump_debug() const;
 
@@ -92,6 +96,9 @@ class SendspinMediaSource final : public SendspinChild,
   std::atomic<uint32_t> last_channels_{0};
   std::atomic<size_t> input_bytes_{0};
   std::atomic<size_t> output_bytes_{0};
+  std::atomic<uint32_t> last_buffered_bytes_{0};
+  std::atomic<uint32_t> max_buffered_bytes_{0};
+  std::atomic<uint32_t> last_bytes_per_frame_{0};
 };
 
 }  // namespace esphome::sendspin_

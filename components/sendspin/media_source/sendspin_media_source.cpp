@@ -184,6 +184,26 @@ void SendspinMediaSource::notify_audio_played(uint32_t frames, int64_t timestamp
 
 bool SendspinMediaSource::connected() const { return this->parent_ != nullptr && this->parent_->is_server_connected(); }
 
+uint32_t SendspinMediaSource::buffered_ms() const {
+  const auto bytes = this->last_buffered_bytes_.load(std::memory_order_relaxed);
+  const auto rate = this->last_sample_rate_.load(std::memory_order_relaxed);
+  const auto bytes_per_frame = this->last_bytes_per_frame_.load(std::memory_order_relaxed);
+  if (rate == 0 || bytes_per_frame == 0) {
+    return 0;
+  }
+  return static_cast<uint32_t>((static_cast<uint64_t>(bytes) * 1000ULL) /
+                               (static_cast<uint64_t>(rate) * bytes_per_frame));
+}
+
+uint32_t SendspinMediaSource::buffered_percent() const {
+  const auto bytes = this->last_buffered_bytes_.load(std::memory_order_relaxed);
+  const auto max_bytes = this->max_buffered_bytes_.load(std::memory_order_relaxed);
+  if (max_bytes == 0) {
+    return 0;
+  }
+  return static_cast<uint32_t>((static_cast<uint64_t>(bytes) * 100ULL) / max_bytes);
+}
+
 std::string SendspinMediaSource::debug_summary() const {
   const auto calls = this->write_call_count_.load(std::memory_order_relaxed);
   const auto short_writes = this->short_write_count_.load(std::memory_order_relaxed);
@@ -236,6 +256,14 @@ size_t SendspinMediaSource::on_audio_write(uint8_t *data, size_t length, uint32_
   this->last_sample_rate_.store(*params.sample_rate, std::memory_order_relaxed);
   this->last_channels_.store(*params.channels, std::memory_order_relaxed);
   audio::AudioStreamInfo stream_info(*params.bit_depth, *params.channels, *params.sample_rate);
+  this->last_bytes_per_frame_.store(
+      static_cast<uint32_t>((*params.bit_depth * *params.channels) / 8), std::memory_order_relaxed);
+  this->last_buffered_bytes_.store(static_cast<uint32_t>(length), std::memory_order_relaxed);
+  uint32_t max_bytes = this->max_buffered_bytes_.load(std::memory_order_relaxed);
+  while (static_cast<uint32_t>(length) > max_bytes &&
+         !this->max_buffered_bytes_.compare_exchange_weak(max_bytes, static_cast<uint32_t>(length),
+                                                          std::memory_order_relaxed)) {
+  }
 
   const uint32_t started_ms = millis();
   size_t written = this->write_output(data, length, timeout_ms, stream_info);
