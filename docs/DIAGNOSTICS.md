@@ -11,6 +11,38 @@ Home Assistant's temporary
 is usually the least intrusive way to inspect the processed speech delivered by
 the board.
 
+## Wi-Fi and Sendspin playback diagnostics
+
+These entities are always available (they do not require a diagnostic package)
+and are declared in this order in the firmware. They describe the network
+attachment and the Sendspin playback pipeline:
+
+| Entity | Type | Meaning |
+|---|---|---|
+| WiFi SSID | text sensor | The Wi-Fi network the device is currently joined to. |
+| WiFi Signal | sensor | Received signal strength in dBm; values closer to 0 are stronger. |
+| IPv4 Address | text sensor | The device's current IP address. |
+| Sendspin Track Artist | text sensor | Artist of the stream the Sendspin server is serving. |
+| Sendspin Track Title | text sensor | Title of the stream the Sendspin server is serving. |
+| Sendspin Track Progress | sensor | Playback position in whole seconds. |
+| Sendspin Last Write | sensor | Duration of the most recent audio write, in milliseconds. |
+| Sendspin Longest Write | sensor | Longest audio write observed, in milliseconds. |
+| Sendspin Recovery Restarts | sensor | Times the Sendspin client was restarted after losing its server connection. |
+| Sendspin Short Writes | sensor | Writes that accepted fewer bytes than requested. |
+| Sendspin Stalled Writes | sensor | Writes that took 500 ms or longer. |
+| Sendspin Write Calls | sensor | Total audio write calls since boot. |
+| Sendspin Zero Writes | sensor | Writes that carried zero bytes. |
+| Sendspin Buffer Full | sensor | Current Sendspin buffer fill, as a percentage. |
+| Sendspin Buffer Backlog | sensor | Buffered audio still awaiting playback, in milliseconds. |
+| Sendspin Buffer Backlog Bytes | sensor | Bytes buffered at the most recent write. |
+| Sendspin Largest Buffer Backlog Bytes | sensor | Highest buffer backlog ever observed, in bytes. |
+
+`Sendspin Largest Buffer Backlog Bytes` is the high-water mark of the receive
+buffer. When it sits pinned at its capacity while playback is expected, the
+consumer side of the pipeline is not draining — the buffer fills and audio
+stalls. Rising `Sendspin Short Writes`/`Sendspin Zero Writes` and a climbing
+`Sendspin Recovery Restarts` counter point at the Sendspin connection flapping.
+
 ## Raw TDM levels
 
 Use [`diagnostics/tdm-levels.yaml`](../diagnostics/tdm-levels.yaml) when you need
