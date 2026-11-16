@@ -1,0 +1,39 @@
+# SEGGER SystemView tracing for the Waveshare ESP32-S3-AUDIO-Board.
+#
+# Enables ESP-IDF FreeRTOS SystemView tracing and re-includes the ``app_trace``
+# IDF component that ESPHome excludes by default. Trace data leaves the board
+# over JTAG (the built-in USB-Serial/JTAG port) into the TRAX trace memory,
+# where OpenOCD reads it. See docs/DIAGNOSTICS.md for the capture workflow.
+#
+# This is a diagnostic package: the SystemView hooks run on every task switch
+# and ISR entry/exit, which adds measurable CPU overhead to the real-time audio
+# path. Enable it only in a dedicated tracing build and remove it afterwards.
+#
+# Use as a second package next to the main configuration:
+#
+#   packages:
+#     firmware: !include waveshare-va.yaml
+#     systemview: !include diagnostics/systemview.yaml
+esp32:
+  framework:
+    sdkconfig_options:
+      # Cut trace event volume to a minimum to avoid overwhelming the TRAX trace memory and OpenOCD.
+      CONFIG_APPTRACE_SV_EVT_ISR_ENTER_ENABLE: "n"
+      CONFIG_APPTRACE_SV_EVT_ISR_EXIT_ENABLE: "n"
+      CONFIG_APPTRACE_SV_EVT_ISR_TO_SCHED_ENABLE: "n"
+      CONFIG_APPTRACE_SV_EVT_TIMER_ENTER_ENABLE: "n"
+      CONFIG_APPTRACE_SV_EVT_TIMER_EXIT_ENABLE: "n"
+      CONFIG_APPTRACE_SV_EVT_IDLE_ENABLE: "n"
+      # Route application trace data through JTAG into TRAX trace memory.
+      # This also selects CONFIG_APPTRACE_ENABLE and the trace-memory driver.
+      CONFIG_APPTRACE_DEST_JTAG: "y"
+      # Master switch for SEGGER SystemView-compatible FreeRTOS tracing.
+      CONFIG_APPTRACE_SV_ENABLE: "y"
+      # Send SystemView events over JTAG (the default, stated explicitly).
+      CONFIG_APPTRACE_SV_DEST_JTAG: "y"
+      # The audio stack, wake-word pipeline and ESPHome services create more
+      # than the default 16 task slots; leave headroom for all of them.
+      CONFIG_APPTRACE_SV_MAX_TASKS: "32"
+    advanced:
+      include_builtin_idf_components:
+        - app_trace

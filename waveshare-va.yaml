@@ -1584,6 +1584,10 @@ number:
     on_value: *repaint_if_ready
 
 sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    entity_category: diagnostic
+
   - platform: template
     id: next_timer
     name: "Next timer"
@@ -1728,6 +1732,15 @@ text_sensor:
     name: "Next timer name"
     icon: "mdi:timer"
     update_interval: never
+
+  - platform: wifi_info
+    ip_address:
+      id: ipv4_address
+      name: "IPv4 Address"
+      entity_category: diagnostic
+    ssid:
+      name: "WiFi SSID"
+      entity_category: diagnostic
 
   - platform: sendspin
     sendspin_id: sendspin_hub

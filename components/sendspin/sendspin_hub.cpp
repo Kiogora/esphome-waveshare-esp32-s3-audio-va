@@ -211,6 +211,14 @@ void SendspinHub::handle_disconnect_recovery_() {
   const bool was_connected = this->connected_;
   this->connected_ = false;
 
+  if (was_connected && this->player_listener_ != nullptr) {
+    // The server connection dropped mid-stream. End the active media stream so
+    // the ESPHome media pipeline tears down instead of waiting forever for
+    // more audio (which leaves the Sendspin buffer pinned at 100%).
+    ESP_LOGW(TAG, "Server connection lost mid-stream; ending the active media stream");
+    this->player_listener_->on_stream_end();
+  }
+
   if (!this->enabled_.value_or(true) || this->status_has_error()) {
     this->disconnect_recovery_scheduled_ = false;
     return;

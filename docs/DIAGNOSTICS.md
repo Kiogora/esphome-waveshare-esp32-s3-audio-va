@@ -145,6 +145,58 @@ Preserve the baseline YAML and firmware binary before migrating. For the first
 migration, set HTTP buffers explicitly to the old player's values; compare
 architecture with equivalent buffers before attempting memory tuning.
 
+## SEGGER SystemView tracing
+
+Use [`diagnostics/systemview.yaml`](../diagnostics/systemview.yaml) to record a
+FreeRTOS task and interrupt trace for [SEGGER
+SystemView](https://www.segger.com/products/development-tools/systemview/).
+This is the right tool when a workload needs task-level or interrupt-level
+attribution that the CPU busy percentages from `cpu.yaml` cannot provide, such
+as pinning down which task starves the audio pipeline or the AFE feed.
+
+Add it as a second package in your local wrapper:
+
+```yaml
+packages:
+  firmware: !include waveshare-va.yaml
+  systemview: !include diagnostics/systemview.yaml
+```
+
+The package re-includes the `app_trace` IDF component that ESPHome excludes by
+default and routes trace data through JTAG into the ESP32-S3 TRAX trace memory.
+The board's USB port is the built-in USB-Serial/JTAG controller, so no extra
+wiring is needed; UART0 is not exposed on the USB connector, which is why this
+uses the JTAG destination rather than a UART one.
+
+SystemView hooks run on every task switch and ISR entry/exit, so build a
+dedicated tracing firmware and remove the package for normal listening tests.
+Flash the build to the board, then capture with Espressif's OpenOCD:
+
+```sh
+openocd -f board/esp32s3-builtin.cfg
+```
+
+In a second terminal, connect to OpenOCD and start the trace. The ESP32-S3 is
+dual-core, so capture both CPU files:
+
+```sh
+telnet 127.0.0.1 4444
+> esp sysview start file://pro-cpu.svdat file://app-cpu.svdat
+```
+
+Reproduce the workload, then stop the trace:
+
+```sh
+> esp sysview stop
+```
+
+Load each `.svdat` file into SystemView. To see both cores in one view, use the
+free Eclipse [Impulse](https://toem.de/index.php/products/impulse) plugin and
+add both files to a multi-adapter port. ESP-IDF uses its own SystemView
+FreeRTOS event IDs, so replace
+`$SYSVIEW_INSTALL_DIR/Description/SYSVIEW_FreeRTOS.txt` with
+`$IDF_PATH/tools/esp_app_trace/SYSVIEW_FreeRTOS.txt` before opening a trace.
+
 ## Reporting results
 
 Record the installed firmware version, whether the build is precompiled or
